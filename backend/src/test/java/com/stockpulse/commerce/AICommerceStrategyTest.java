@@ -1,10 +1,11 @@
 package com.stockpulse.commerce;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.anyString;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -19,8 +20,12 @@ class AICommerceStrategyTest {
     @Mock
     private LLMGateway llmGateway;
 
-    @InjectMocks
     private AICommerceStrategy strategy;
+
+    @BeforeEach
+    void setUp() {
+        strategy = new AICommerceStrategy(llmGateway, new RuleBasedCommerceStrategy());
+    }
 
     @Test
     void generateRecommendation_ParsesJsonAndMarkdownFencedResponses() {
@@ -46,9 +51,10 @@ class AICommerceStrategyTest {
 
         CommerceRecommendation recommendation = strategy.generateRecommendation(context());
 
-        assertEquals(20.0, recommendation.getPricingRecommendation().getRecommendedPrice());
-        assertEquals(PricingSuggestion.PricingDirection.HOLD,
+        assertEquals(22.0, recommendation.getPricingRecommendation().getRecommendedPrice());
+        assertEquals(PricingSuggestion.PricingDirection.INCREASE,
                 recommendation.getPricingRecommendation().getDirection());
+        assertTrue(recommendation.getPricingRecommendation().getReasoning().contains("rule-based fallback"));
         assertEquals(9, recommendation.getReorderRecommendation().getRecommendedQuantity());
     }
 
@@ -64,6 +70,32 @@ class AICommerceStrategyTest {
         assertEquals(PricingSuggestion.PricingDirection.INCREASE,
                 recommendation.getPricingRecommendation().getDirection());
         assertEquals(11, recommendation.getReorderRecommendation().getRecommendedQuantity());
+        assertTrue(recommendation.getReorderRecommendation().getReasoning().contains("rule-based fallback"));
+        }
+
+        @Test
+        void generateRecommendation_WhenGatewayFails_UsesRuleBasedRecommendations() {
+        when(llmGateway.callLLM(anyString())).thenThrow(new IllegalStateException("provider unavailable"));
+
+        CommerceRecommendation recommendation = strategy.generateRecommendation(context());
+
+        assertEquals(22.0, recommendation.getPricingRecommendation().getRecommendedPrice());
+        assertEquals(PricingSuggestion.PricingDirection.INCREASE,
+            recommendation.getPricingRecommendation().getDirection());
+        assertEquals(11, recommendation.getReorderRecommendation().getRecommendedQuantity());
+        assertTrue(recommendation.getPricingRecommendation().getReasoning().contains("AI request failed"));
+    }
+
+    @Test
+    void generateRecommendation_WhenProviderReturnsNoOpText_UsesRuleBasedRecommendations() {
+        when(llmGateway.callLLM(anyString())).thenReturn(response("AI not configured"));
+
+        CommerceRecommendation recommendation = strategy.generateRecommendation(context());
+
+        assertEquals(22.0, recommendation.getPricingRecommendation().getRecommendedPrice());
+        assertEquals(11, recommendation.getReorderRecommendation().getRecommendedQuantity());
+        assertTrue(recommendation.getPricingRecommendation().getReasoning().contains("rule-based fallback"));
+        assertTrue(recommendation.getReorderRecommendation().getReasoning().contains("rule-based fallback"));
     }
 
     private RecommendationContext context() {

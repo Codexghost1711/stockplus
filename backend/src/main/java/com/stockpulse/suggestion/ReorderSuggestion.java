@@ -1,7 +1,16 @@
 package com.stockpulse.suggestion;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "reorder_suggestions")
@@ -25,6 +34,7 @@ public class ReorderSuggestion {
     
     private Double confidence;
     
+    @Column(columnDefinition = "TEXT")
     private String reasoning;
 
     @Enumerated(EnumType.STRING)

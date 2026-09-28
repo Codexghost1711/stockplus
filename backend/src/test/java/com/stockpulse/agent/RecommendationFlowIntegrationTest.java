@@ -1,5 +1,15 @@
 package com.stockpulse.agent;
 
+import java.time.Duration;
+import java.util.List;
+
+import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
 import com.stockpulse.product.Product;
 import com.stockpulse.product.ProductRepository;
 import com.stockpulse.product.ProductService;
@@ -7,16 +17,6 @@ import com.stockpulse.suggestion.PricingSuggestion;
 import com.stockpulse.suggestion.PricingSuggestionRepository;
 import com.stockpulse.suggestion.ReorderSuggestion;
 import com.stockpulse.suggestion.ReorderSuggestionRepository;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-
-import java.time.Duration;
-import java.util.List;
-
-import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @SpringBootTest(properties = {
         "stockpulse.ai.provider=UNKNOWN",
@@ -67,4 +67,24 @@ class RecommendationFlowIntegrationTest {
                     reorderSuggestions.get(0).getStatus());
         });
     }
+
+        @Test
+        void suggestionReasoningLongerThan255Characters_PersistsForBothSuggestionTypes() {
+                String longReasoning = "AI recommendation reasoning ".repeat(30);
+
+                PricingSuggestion pricingSuggestion = new PricingSuggestion();
+                pricingSuggestion.setProductId(1L);
+                pricingSuggestion.setReasoning(longReasoning);
+                PricingSuggestion savedPricing = pricingSuggestionRepository.save(pricingSuggestion);
+
+                ReorderSuggestion reorderSuggestion = new ReorderSuggestion();
+                reorderSuggestion.setProductId(1L);
+                reorderSuggestion.setReasoning(longReasoning);
+                ReorderSuggestion savedReorder = reorderSuggestionRepository.save(reorderSuggestion);
+
+                assertEquals(longReasoning, pricingSuggestionRepository.findById(savedPricing.getId())
+                                .orElseThrow().getReasoning());
+                assertEquals(longReasoning, reorderSuggestionRepository.findById(savedReorder.getId())
+                                .orElseThrow().getReasoning());
+        }
 }

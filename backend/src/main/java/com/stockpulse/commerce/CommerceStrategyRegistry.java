@@ -1,6 +1,7 @@
 package com.stockpulse.commerce;
 
 import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -12,7 +13,7 @@ public class CommerceStrategyRegistry {
 
     public CommerceStrategyRegistry(
             Map<String, CommerceStrategy> strategies,
-            @Value("${stockpulse.commerce.strategy:RULE}") String activeStrategyName) {
+            @Value("${stockpulse.commerce.strategy:AI}") String activeStrategyName) {
         this.strategies = strategies;
         this.activeStrategyName = activeStrategyName.trim().toUpperCase();
     }

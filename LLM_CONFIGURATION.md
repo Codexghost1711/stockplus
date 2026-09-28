@@ -4,15 +4,15 @@ StockPulse has two independent settings: the commerce strategy and the LLM gatew
 
 ## Select a Commerce Strategy
 
-Set `stockpulse.commerce.strategy` to:
+The default value for `stockpulse.commerce.strategy` is `AI`. Set it explicitly to:
 
-- `RULE` for deterministic local recommendations (the default).
-- `AI` to use the AI commerce strategy.
+- `AI` to use AI as the primary strategy. Invalid responses and gateway errors fall back to the rule-based recommendations.
+- `RULE` for deterministic local recommendations without AI calls.
 
 The AI strategy uses `stockpulse.ai.provider` to select the gateway:
 
 - `LITE` or `LITELLM` selects the LiteLLM gateway.
-- `UNKNOWN` selects the no-op gateway, which is suitable for local tests without network access.
+- `UNKNOWN` selects the no-op gateway, which is suitable for local development without credentials. AI is selected, but recommendations use the rule-based fallback until a live provider is configured.
 
 ## LiteLLM Properties
 

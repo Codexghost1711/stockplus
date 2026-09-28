@@ -10,7 +10,7 @@ StockPulse is a local-first inventory and pricing recommendation demo. It tracks
 4. The selected commerce strategy creates pricing and reorder recommendations. Pending recommendations for the same product and trigger are not generated again.
 5. Suggestions are saved as `PENDING`. Accepting a pricing suggestion changes the product price; accepting a reorder suggestion adds the recommended quantity to stock. Rejected suggestions leave the product unchanged.
 
-The default `RULE` strategy increases price by 10% when stock is below the reorder threshold, otherwise by 5% when demand velocity is above 10, and otherwise holds the price. Reorder quantity is `max((reorder threshold * 3) - current stock, 1)`. The optional `AI` strategy uses the configured LLM gateway and has fallback recommendations; see [LLM_CONFIGURATION.md](LLM_CONFIGURATION.md).
+The default `AI` strategy uses the configured LLM gateway and falls back to the rule-based strategy if the provider fails or returns an invalid response. Without provider credentials, the gateway is set to `UNKNOWN`, so recommendations use the rule-based fallback without making network calls. The rule strategy increases price by 10% when stock is below the reorder threshold, otherwise by 5% when demand velocity is above 10, and otherwise holds the price. Reorder quantity is `max((reorder threshold * 3) - current stock, 1)`. See [LLM_CONFIGURATION.md](LLM_CONFIGURATION.md) to configure a live provider.
 
 ## Project Structure
 
@@ -44,11 +44,11 @@ In a second terminal, run the frontend:
 
 ```powershell
 cd C:\stockplus\frontend
-npm ci
-npm run dev
+npm.cmd install
+npm.cmd run dev
 ```
 
-Open the frontend at `http://localhost:5173`. The backend API is at `http://localhost:8080`; the H2 console is at `http://localhost:8080/h2-console`.
+Open the frontend at [http://localhost:5173](http://localhost:5173/). The backend API is at `http://localhost:8080`; the H2 console is at `http://localhost:8080/h2-console`.
 
 To verify the frontend production build, run `npm run build` from `frontend/`.
 

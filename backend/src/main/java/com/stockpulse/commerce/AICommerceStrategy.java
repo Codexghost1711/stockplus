@@ -20,13 +20,16 @@ public class AICommerceStrategy implements CommerceStrategy {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final LLMGateway llmGateway;
+    private final RuleBasedCommerceStrategy ruleBasedCommerceStrategy;
 
-    public AICommerceStrategy(LLMGateway llmGateway) {
+    public AICommerceStrategy(LLMGateway llmGateway, RuleBasedCommerceStrategy ruleBasedCommerceStrategy) {
         this.llmGateway = llmGateway;
+        this.ruleBasedCommerceStrategy = ruleBasedCommerceStrategy;
     }
 
     @Override
     public CommerceRecommendation generateRecommendation(RecommendationContext context) {
+        CommerceRecommendation fallback = ruleBasedCommerceStrategy.generateRecommendation(context);
         try {
             logger.debug("Generating AI-powered recommendation for product: {}", context.getSku());
             
@@ -46,21 +49,19 @@ public class AICommerceStrategy implements CommerceStrategy {
             CommerceRecommendation recommendation = new CommerceRecommendation();
             
             // Process pricing response
-                CommerceRecommendation.PricingRecommendation pricingRec =
-                    parsePricingResponse(pricingResponse.getRawResponse(), context);
+            CommerceRecommendation.PricingRecommendation pricingRec = parsePricingResponse(
+                    pricingResponse.getRawResponse(), context, fallback.getPricingRecommendation());
             recommendation.setPricingRecommendation(pricingRec);
             
             // Process reorder response
-                CommerceRecommendation.ReorderRecommendation reorderRec =
-                    parseReorderResponse(reorderResponse.getRawResponse(), context);
+            CommerceRecommendation.ReorderRecommendation reorderRec = parseReorderResponse(
+                    reorderResponse.getRawResponse(), fallback.getReorderRecommendation());
             recommendation.setReorderRecommendation(reorderRec);
             
             return recommendation;
         } catch (Exception e) {
             logger.warn("Failed to generate AI recommendation, falling back to rule-based recommendation: {}", e.getMessage());
-            // In a real implementation, we would have a fallback strategy
-            // For now, we'll return a default recommendation
-            return createFallbackRecommendation(context);
+            return markFallback(fallback, "AI request failed; using rule-based recommendations.");
         }
     }
     
@@ -111,6 +112,7 @@ public class AICommerceStrategy implements CommerceStrategy {
             }
         }
         
+        prompt.append("Return ONLY a valid JSON object, with no Markdown fences or surrounding text.\n");
         prompt.append("RETURN FORMAT (JSON):\n");
         prompt.append("{\n");
         prompt.append("  \"recommendedPrice\": 29.99,\n");
@@ -137,13 +139,16 @@ public class AICommerceStrategy implements CommerceStrategy {
         prompt.append("2. Confidence score (0.0 to 1.0)\n");
         prompt.append("3. Brief reasoning (1-2 sentences)\n\n");
         
-        prompt.append("Return your response as a JSON object with these fields: recommendedQuantity, confidence, reasoning.");
+        prompt.append("Return ONLY a valid JSON object, with no Markdown fences or surrounding text. ");
+        prompt.append("Include these fields: recommendedQuantity, confidence, reasoning.");
         
         return prompt.toString();
     }
     
     private CommerceRecommendation.PricingRecommendation parsePricingResponse(
-            String response, RecommendationContext context) {
+            String response,
+            RecommendationContext context,
+            CommerceRecommendation.PricingRecommendation ruleFallback) {
         CommerceRecommendation.PricingRecommendation pricingRec = new CommerceRecommendation.PricingRecommendation();
         try {
             JsonNode json = parseJsonObject(response);
@@ -165,13 +170,15 @@ public class AICommerceStrategy implements CommerceStrategy {
             pricingRec.setReasoning(readReasoning(json, "AI-generated pricing recommendation."));
         } catch (IOException | IllegalArgumentException e) {
             logger.warn("Failed to parse pricing response: {}", e.getMessage());
-            return fallbackPricing(context, "Unable to parse AI pricing response; using current price.");
+            ruleFallback.setReasoning("AI pricing response was invalid; using rule-based fallback. "
+                    + ruleFallback.getReasoning());
+            return ruleFallback;
         }
         return pricingRec;
     }
     
     private CommerceRecommendation.ReorderRecommendation parseReorderResponse(
-            String response, RecommendationContext context) {
+            String response, CommerceRecommendation.ReorderRecommendation ruleFallback) {
         CommerceRecommendation.ReorderRecommendation reorderRec = new CommerceRecommendation.ReorderRecommendation();
         try {
             JsonNode json = parseJsonObject(response);
@@ -186,7 +193,9 @@ public class AICommerceStrategy implements CommerceStrategy {
             reorderRec.setReasoning(readReasoning(json, "AI-generated reorder recommendation."));
         } catch (IOException | IllegalArgumentException e) {
             logger.warn("Failed to parse reorder response: {}", e.getMessage());
-            return fallbackReorder(context, "Unable to parse AI reorder response; using rule-based quantity.");
+            ruleFallback.setReasoning("AI reorder response was invalid; using rule-based fallback. "
+                    + ruleFallback.getReasoning());
+            return ruleFallback;
         }
         return reorderRec;
     }
@@ -241,37 +250,11 @@ public class AICommerceStrategy implements CommerceStrategy {
                 : PricingSuggestion.PricingDirection.DECREASE;
     }
 
-    private CommerceRecommendation.PricingRecommendation fallbackPricing(
-            RecommendationContext context, String reasoning) {
-        CommerceRecommendation.PricingRecommendation pricing = new CommerceRecommendation.PricingRecommendation();
-        Double currentPrice = Optional.ofNullable(context.getCurrentPrice()).orElse(0.0);
-        pricing.setRecommendedPrice(currentPrice);
-        pricing.setDirection(PricingSuggestion.PricingDirection.HOLD);
-        pricing.setConfidence(0.3);
-        pricing.setReasoning(reasoning);
-        return pricing;
-    }
-
-    private CommerceRecommendation.ReorderRecommendation fallbackReorder(
-            RecommendationContext context, String reasoning) {
-        CommerceRecommendation.ReorderRecommendation reorder = new CommerceRecommendation.ReorderRecommendation();
-        int threshold = Optional.ofNullable(context.getReorderThreshold()).orElse(0);
-        int stock = Optional.ofNullable(context.getStockLevel()).orElse(0);
-        reorder.setRecommendedQuantity(Math.max((threshold * 3) - stock, 1));
-        reorder.setConfidence(0.3);
-        reorder.setReasoning(reasoning);
-        return reorder;
-    }
-    
-    private CommerceRecommendation createFallbackRecommendation(RecommendationContext context) {
-        // Create a fallback recommendation using rule-based logic
-        CommerceRecommendation recommendation = new CommerceRecommendation();
-        
-        recommendation.setPricingRecommendation(
-            fallbackPricing(context, "AI recommendation failed; using current price as fallback."));
-        recommendation.setReorderRecommendation(
-            fallbackReorder(context, "AI recommendation failed; using rule-based quantity."));
-        
+    private CommerceRecommendation markFallback(CommerceRecommendation recommendation, String reason) {
+        recommendation.getPricingRecommendation().setReasoning(
+                reason + " " + recommendation.getPricingRecommendation().getReasoning());
+        recommendation.getReorderRecommendation().setReasoning(
+                reason + " " + recommendation.getReorderRecommendation().getReasoning());
         return recommendation;
     }
 }
