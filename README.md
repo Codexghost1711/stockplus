@@ -90,6 +90,19 @@ Review the pending suggestions in the UI, accept or reject them, and check `GET 
 
 Run the full backend suite with `mvn clean test` from `backend/`. It includes service and strategy unit tests, event-handler tests, and a Spring integration test that verifies an order persists asynchronous recommendations. LLM parsing tests use a mocked gateway; they do not make a live provider request.
 
-## Security Note
+## LLM Credentials
 
-Do not commit API keys, cookies, or other credentials. Rotate any credential that has already been checked into a shared repository, and configure LLM credentials locally as described in [LLM_CONFIGURATION.md](LLM_CONFIGURATION.md).
+The checked-in configuration contains no provider secrets. Without local credentials, StockPulse starts with the `RULE` commerce strategy and `UNKNOWN` LLM provider, so the demo does not require an LLM account.
+
+To enable AI recommendations, obtain credentials from your LLM provider and set them in the same PowerShell terminal before starting the backend:
+
+```powershell
+$env:STOCKPULSE_LLM_PROVIDER = "LITE"
+$env:STOCKPULSE_COMMERCE_STRATEGY = "AI"
+$env:STOCKPULSE_LLM_API_KEY = "<provider-issued key>"
+$env:STOCKPULSE_LLM_COOKIE = "<provider-issued cookie, if required>"
+cd C:\stockplus\backend
+mvn spring-boot:run
+```
+
+The model, base URL, and product header have defaults; override them with `STOCKPULSE_LLM_MODEL`, `STOCKPULSE_LLM_BASE_URL`, and `STOCKPULSE_LLM_PRODUCT` if your provider requires different values. These environment variables apply only to that terminal session. For persistent local setup, use Windows user environment settings or a secret manager, not a committed file. Never commit credentials; rotate any key or cookie that was previously shared. See [LLM_CONFIGURATION.md](LLM_CONFIGURATION.md) for details.
