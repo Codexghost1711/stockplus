@@ -1,0 +1,42 @@
+# Java / Maven / Spring Boot
+**/target/
+**/build/
+**/.classpath
+**/.project
+**/.settings/
+**/.factorypath
+**/.springBeans
+*.class
+*.log
+*.jar
+*.war
+*.ear
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Node / Vite / React
+node_modules/
+frontend/dist/
+frontend/.vite/
+.npm/
+
+# Environment and secrets
+.env
+.env.*
+*.env
+.env.local
+.env.*.local
+secrets/
+*.pem
+*.key
+
+# OS files
+.DS_Store
+Thumbs.db
